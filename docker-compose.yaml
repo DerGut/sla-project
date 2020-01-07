@@ -10,6 +10,8 @@ services:
       - db
       - cache
       - queue
+    volumes:
+      - ./datadog/var/run:/var/run/datadog:ro
 
   db:
     image: mongo
@@ -23,7 +25,7 @@ services:
       - cache-data:/data
 
   queue:
-    image: rabbitmq
+    image: rabbitmq:management
     volumes:
       - queue-data:/var/lib/rabbitmq
 
@@ -37,10 +39,14 @@ services:
     image: datadog/agent
     environment:
       - DD_API_KEY=8e9f7f65974b34a7bab7cca5510b7031
+      - DD_PROCESS_AGENT_ENABLED=true
+      - DD_DOGSTATSD_SOCKET=/var/run/datadog/dsd.socket
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /proc/:/host/proc/:ro
       - /sys/fs/cgroup:/host/sys/fs/cgroup:ro
+      - /etc/passwd:/etc/passwd:ro
+      - ./datadog/var/run:/var/run/datadog
       - ./datadog/conf.d:/conf.d:ro
  
 volumes:

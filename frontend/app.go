@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/DataDog/datadog-go/statsd"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"html/template"
 	"io/ioutil"
@@ -28,6 +29,7 @@ type TemplateData struct {
 
 var (
 	t     *template.Template
+	sd	  *statsd.Client
 	db    DB
 	cache Cache
 	queue Queue
@@ -39,6 +41,11 @@ func init() {
 	t, err = template.ParseFiles("templates/index.html", "templates/table.html")
 	if err != nil {
 		log.Fatalf("Couldn't parse templates: %s", err)
+	}
+
+	sd, err = NewStatsD()
+	if err != nil {
+		log.Fatalf("Couldn't connect to statsd: %s", err)
 	}
 
 	db, err = NewMongoDB()
@@ -59,6 +66,7 @@ func init() {
 
 func staticHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("staticHandler handling %s", r.URL.Path)
+	CountRequest(r)
 
 	path := r.URL.Path[1:]
 	content, err := ioutil.ReadFile(path)
@@ -81,6 +89,7 @@ func staticHandler(w http.ResponseWriter, r *http.Request) {
 
 func upvoteHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("upvoteHandler handling %s", r.URL.Path)
+	CountRequest(r)
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -109,6 +118,7 @@ func upvoteHandler(w http.ResponseWriter, r *http.Request) {
 
 func featuredDataHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("featuredDataHandler handling %s", r.URL.Path)
+	CountRequest(r)
 
 	featured, err := cache.GetFeaturedData(db)
 	if err != nil {
@@ -131,6 +141,7 @@ func featuredDataHandler(w http.ResponseWriter, r *http.Request) {
 
 func allDataHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("allDataHandler handling %s", r.URL.Path)
+	CountRequest(r)
 
 	all, err := db.FindImportantData()
 	if err != nil {
@@ -149,6 +160,7 @@ func allDataHandler(w http.ResponseWriter, r *http.Request) {
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("indexHandler handling %s", r.URL.Path)
+	CountRequest(r)
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
 		return
@@ -196,4 +208,3 @@ func main() {
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
-
