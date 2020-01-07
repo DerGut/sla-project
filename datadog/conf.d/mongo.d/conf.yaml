@@ -1,0 +1,12 @@
+init_config:
+
+instances:
+  - server: "mongodb://datadog:datadog@db:27017/"
+
+    replica_check: true
+
+    additional_metrics:
+      - metrics.commands
+      - tcmalloc
+      - top
+      - collection

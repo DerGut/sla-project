@@ -1,0 +1,50 @@
+version: '3.1'
+
+services:
+
+  frontend:
+    build: frontend
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+      - cache
+      - queue
+
+  db:
+    image: mongo
+    volumes:
+      - db-data:/data/db
+      - db-config:/data/configdb
+
+  cache:
+    image: redis
+    volumes:
+      - cache-data:/data
+
+  queue:
+    image: rabbitmq
+    volumes:
+      - queue-data:/var/lib/rabbitmq
+
+  worker:
+    build: worker
+    depends_on:
+      - queue
+      - db
+
+  datadog:
+    image: datadog/agent
+    environment:
+      - DD_API_KEY=8e9f7f65974b34a7bab7cca5510b7031
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /proc/:/host/proc/:ro
+      - /sys/fs/cgroup:/host/sys/fs/cgroup:ro
+      - ./datadog/conf.d:/conf.d:ro
+ 
+volumes:
+  db-data:
+  db-config:
+  cache-data:
+  queue-data:

@@ -1,0 +1,7 @@
+.DS_Store
+.idea/
+frontend/node_modules/
+frontend/static/lib/
+frontend/static/js/main.js
+worker/venv/
+worker/__pycache__/
