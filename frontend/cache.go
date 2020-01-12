@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/go-redis/redis"
 	redistrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/go-redis/redis"
 	"log"
@@ -29,10 +30,6 @@ func NewRedisCache() (r *redisCache, err error) {
 		return nil, err
 	}
 
-	// Configure as cache
-	client.ConfigSet("maxmemory", "5k")
-	client.ConfigSet("maxmemory-policy", "allkeys-lru")
-
 	log.Printf("Initialized connection to redis")
 	return &redisCache{client}, nil
 }
@@ -48,18 +45,19 @@ func (r *redisCache) GetFeaturedData() (*[]Document, error)  {
 		Offset: 0,
 		Count: 5,
 	}
-	featured, err := r.client.ZRevRangeByScore(redisFeaturedKey, opt).Result()
+	featured, err := r.client.ZRevRangeByScoreWithScores(redisFeaturedKey, opt).Result()
 	if err != nil {
 		return nil, err
 	}
 
 	var docs []Document
-	for _, x := range featured  {
+	for _, x := range featured {
 		var doc Document
-		err := json.Unmarshal([]byte(x), &doc)
+		err := json.Unmarshal([]byte(fmt.Sprintf("%v", x.Member)), &doc)
 		if err != nil {
 			return nil, err
 		}
+		doc.Upvotes = int(x.Score)
 		docs = append(docs, doc)
 	}
 
@@ -69,12 +67,16 @@ func (r *redisCache) GetFeaturedData() (*[]Document, error)  {
 func (r *redisCache) UpdateFeaturedData(docs *[]Document) error {
 	var members []redis.Z
 	for _, d := range *docs {
+		// Neutralize all upvotes so that duplicates will be overwritten
+		score := float64(d.Upvotes)
+		d.Upvotes = 0
+
 		bytes, err := json.Marshal(d)
 		if err != nil {
 			return err
 		}
 		members = append(members, redis.Z{
-			Score:  float64(d.Upvotes),
+			Score:  score,
 			Member: string(bytes),
 		})
 	}

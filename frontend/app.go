@@ -41,7 +41,7 @@ func init() {
 
 	tracer.Start(tracer.WithServiceName("frontend"))
 
-	t, err = template.ParseFiles("templates/index.html", "templates/table.html")
+	t, err = template.ParseFiles("templates/index.html")
 	if err != nil {
 		log.Fatalf("Couldn't parse templates: %s", err)
 	}
@@ -94,7 +94,7 @@ func upvoteHandler(w http.ResponseWriter, r *http.Request) {
 
 	id, err := primitive.ObjectIDFromHex(string(body))
 	if err != nil {
-		log.Printf("No valid ObjectId: %s", err)
+		log.Printf("No valid ObjectId %s: %s", string(body), err)
 		http.NotFound(w, r)
 		return
 	}
@@ -167,6 +167,8 @@ func main() {
 
 	//go keepPublishingTasks()
 
+	go syncCache()
+
 	mux := httptrace.NewServeMux()
 	mux.HandleFunc("/static/", staticHandler)
 	mux.HandleFunc("/upvote/", upvoteHandler)
@@ -189,6 +191,17 @@ func keepPublishingTasks() {
 			log.Printf("Couldn't publish: %s", err)
 		}
 		time.Sleep(3*time.Second)
+	}
+}
+
+func syncCache() {
+	for range time.NewTicker(5 * time.Second).C {
+		err := syncCacheWithDB(cache, db)
+		if err != nil {
+			log.Printf("Problem syncing cache: %s", err)
+		} else {
+			log.Printf("Synced cache")
+		}
 	}
 }
 
