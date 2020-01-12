@@ -1,4 +1,4 @@
 init_config:
 
 instances:
-  - rabbitmq_api_url: http://queue:15672/api/
+  - rabbitmq_api_url: http://guest:guest@queue:15672/api/

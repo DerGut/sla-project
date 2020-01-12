@@ -73,7 +73,7 @@ func (r *rabbitMQ) PublishTask(task interface{}) error {
 }
 
 func retryDial() (*amqp.Connection, error) {
-	var retries = 10
+	var retries = 15
 	var err error
 	for i := 0; i < retries; i++ {
 		var conn *amqp.Connection

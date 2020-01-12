@@ -1,6 +1,6 @@
 FROM golang:1.13
 
-WORKDIR /go/src/github.com/DerGut/sla-service
+WORKDIR /go/src/github.com/DerGut/sla-service/frontend
 
 COPY *.go ./
 COPY go.* ./

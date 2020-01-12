@@ -2,14 +2,16 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/DataDog/datadog-go/statsd"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	httptrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/net/http"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"html/template"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"path/filepath"
-	"strconv"
+	"time"
 )
 
 type Document struct {
@@ -29,7 +31,6 @@ type TemplateData struct {
 
 var (
 	t     *template.Template
-	sd	  *statsd.Client
 	db    DB
 	cache Cache
 	queue Queue
@@ -38,14 +39,11 @@ var (
 func init() {
 	var err error
 
+	tracer.Start(tracer.WithServiceName("frontend"))
+
 	t, err = template.ParseFiles("templates/index.html", "templates/table.html")
 	if err != nil {
 		log.Fatalf("Couldn't parse templates: %s", err)
-	}
-
-	sd, err = NewStatsD()
-	if err != nil {
-		log.Fatalf("Couldn't connect to statsd: %s", err)
 	}
 
 	db, err = NewMongoDB()
@@ -66,7 +64,6 @@ func init() {
 
 func staticHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("staticHandler handling %s", r.URL.Path)
-	CountRequest(r)
 
 	path := r.URL.Path[1:]
 	content, err := ioutil.ReadFile(path)
@@ -89,12 +86,10 @@ func staticHandler(w http.ResponseWriter, r *http.Request) {
 
 func upvoteHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("upvoteHandler handling %s", r.URL.Path)
-	CountRequest(r)
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		log.Printf("Couoldn't read request body: %s", err)
-		return
+		log.Fatalf("Couldn't read request body: %s", err)
 	}
 
 	id, err := primitive.ObjectIDFromHex(string(body))
@@ -104,23 +99,16 @@ func upvoteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	upvotes, err := cache.VoteUp(id)
-	if err != nil {
-		log.Printf("Couldn't vote up in redis: %s", err)
-	}
-	w.Write([]byte(strconv.Itoa(upvotes)))
-
 	err = db.VoteUp(id)
 	if err != nil {
-		log.Printf("Couldn't vote up in mongo: %s", err)
+		log.Fatalf("Couldn't vote up in mongo: %s", err)
 	}
 }
 
 func featuredDataHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("featuredDataHandler handling %s", r.URL.Path)
-	CountRequest(r)
 
-	featured, err := cache.GetFeaturedData(db)
+	featured, err := cache.GetFeaturedData()
 	if err != nil {
 		log.Printf("Couldn't find featured data in redis - trying mongo: %s", err)
 		featured, err = db.FindFeaturedData()
@@ -132,7 +120,7 @@ func featuredDataHandler(w http.ResponseWriter, r *http.Request) {
 
 	marshalled, err := json.Marshal(featured)
 	if err != nil {
-		log.Printf("Couldn't marshal response: %s", err)
+		log.Fatalf("Couldn't marshal response: %s", err)
 	}
 
 	w.Write(marshalled)
@@ -141,7 +129,6 @@ func featuredDataHandler(w http.ResponseWriter, r *http.Request) {
 
 func allDataHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("allDataHandler handling %s", r.URL.Path)
-	CountRequest(r)
 
 	all, err := db.FindImportantData()
 	if err != nil {
@@ -151,7 +138,7 @@ func allDataHandler(w http.ResponseWriter, r *http.Request) {
 
 	marshalled, err := json.Marshal(all)
 	if err != nil {
-		log.Printf("Couldn't marshal response: %s", err)
+		log.Fatalf("Couldn't marshal response: %s", err)
 	}
 
 	w.Write(marshalled)
@@ -160,51 +147,56 @@ func allDataHandler(w http.ResponseWriter, r *http.Request) {
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("indexHandler handling %s", r.URL.Path)
-	CountRequest(r)
+
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
 		return
 	}
 
-	featured, err := cache.GetFeaturedData(db)
-	if err != nil {
-		log.Printf("Couldn't find featured data in redis - trying mongo: %s", err)
-		featured, err = db.FindFeaturedData()
-		if err != nil {
-			log.Printf("Couldn't find featured data in mongo either: %s", err)
-			featured = &[]Document{}
-		}
-	}
-
-	all, err := db.FindImportantData()
-	if err != nil {
-		log.Printf("Couldn't find important data: %s", err)
-		all = &[]Document{}
-	}
-
 	d := TemplateData{
 		Title: "Sample App",
-		Featured: *featured,
-		All:  *all,
 	}
 	t.Execute(w, d)
 }
 
 func main() {
+	defer tracer.Stop()
 	defer db.Close()
 	defer cache.Close()
 	defer queue.Close()
 
-	err := queue.PublishTask(Document{Val1:"rwe", Val2:"dasd"})
+	//go keepPublishingTasks()
+
+	mux := httptrace.NewServeMux()
+	mux.HandleFunc("/static/", staticHandler)
+	mux.HandleFunc("/upvote/", upvoteHandler)
+	mux.HandleFunc("/featured-data/", featuredDataHandler)
+	mux.HandleFunc("/all-data/", allDataHandler)
+	mux.HandleFunc("/", indexHandler)
+
+	log.Fatal(http.ListenAndServe(":8080", mux))
+}
+
+func keepPublishingTasks() {
+	for {
+		token := make([]byte, 10)
+		rand.Read(token)
+		err := queue.PublishTask(Document{
+			Val1: string(token[:5]),
+			Val2: string(token[5:]),
+		})
+		if err != nil {
+			log.Printf("Couldn't publish: %s", err)
+		}
+		time.Sleep(3*time.Second)
+	}
+}
+
+func syncCacheWithDB(c Cache, db DB) error {
+	featured, err := db.FindFeaturedData()
 	if err != nil {
-		log.Fatalf("Couldn't publish: %s", err)
+		return err
 	}
 
-	http.HandleFunc("/static/", staticHandler)
-	http.HandleFunc("/upvote/", upvoteHandler)
-	http.HandleFunc("/featured-data/", featuredDataHandler)
-	http.HandleFunc("/all-data/", allDataHandler)
-	http.HandleFunc("/", indexHandler)
-
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	return c.UpdateFeaturedData(featured)
 }

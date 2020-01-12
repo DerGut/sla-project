@@ -8,6 +8,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
+	mongotrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/go.mongodb.org/mongo-driver/mongo"
 	"log"
 	"time"
 )
@@ -32,7 +33,10 @@ type mongoDB struct {
 func NewMongoDB() (*mongoDB, error) {
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 
-	c, err := mongo.NewClient(options.Client().ApplyURI("mongodb://" + mongoHost + ":" + mongoPort))
+	opts := options.Client()
+	opts.Monitor = mongotrace.NewMonitor()
+	opts.ApplyURI("mongodb://" + mongoHost + ":" + mongoPort)
+	c, err := mongo.NewClient(opts)
 	if err != nil {
 		return nil, err
 	}

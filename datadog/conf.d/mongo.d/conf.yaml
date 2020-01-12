@@ -1,7 +1,7 @@
 init_config:
 
 instances:
-  - server: "mongodb://datadog:datadog@db:27017/"
+  - server: "mongodb://datadog:datadog@db:27017/admin"
 
     replica_check: true
 
@@ -10,3 +10,8 @@ instances:
       - tcmalloc
       - top
       - collection
+
+    collections:
+      - importantData
+
+    collections_indexes_stats: true

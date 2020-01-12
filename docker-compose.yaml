@@ -10,6 +10,8 @@ services:
       - db
       - cache
       - queue
+    environment:
+      - DD_AGENT_HOST=datadog
     volumes:
       - ./datadog/var/run:/var/run/datadog:ro
 
@@ -34,11 +36,29 @@ services:
     depends_on:
       - queue
       - db
+    environment:
+      - DD_AGENT_HOST=datadog
+      - DD_TRACE_AGENT_PORT=8126
+    volumes:
+      - ./datadog/var/run:/var/run/datadog:ro
+
+  poller:
+    build: poller
+    depends_on:
+      - frontend
+      - selenium
+
+  selenium:
+    image: selenium/standalone-chrome
+    volumes:
+    - /dev/shm:/dev/shm
 
   datadog:
     image: datadog/agent
     environment:
       - DD_API_KEY=8e9f7f65974b34a7bab7cca5510b7031
+      - DD_APM_ENABLED=true
+      - DD_APM_NON_LOCAL_TRAFFIC=true
       - DD_PROCESS_AGENT_ENABLED=true
       - DD_DOGSTATSD_SOCKET=/var/run/datadog/dsd.socket
     volumes:

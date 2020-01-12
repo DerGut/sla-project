@@ -1,7 +1,10 @@
 .DS_Store
 .idea/
+datadog/var/
 frontend/node_modules/
 frontend/static/lib/
 frontend/static/js/main.js
 worker/venv/
 worker/__pycache__/
+poller/venv/
+poller/__pychache__/
