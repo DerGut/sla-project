@@ -8,19 +8,31 @@ const allData = "all-data";
 export default function TableWrapper(props) {
     const [data, setData] = useState([]);
 
-    useEffect(() => {
+    function fetchData() {
         fetch(props.type)
             .then((response) => response.json())
             .then((result) => setData(result), (error) => console.error(error));
+    }
+
+    useEffect(() => {
+        fetchData();
+        const id = setInterval(() => fetchData(), 3000);
+
+        return () => clearInterval(id);
     }, []);
+
+    let table;
+    if (data && data.length > 0) {
+        table = <Table type={props.type} data={data}/>;
+    } else {
+        table = <p>Sorry, no data available...</p>
+    }
 
     return (
         <div className="row">
             <div className="col">
                 <h3 id={props.type}>{props.title}</h3>
-                {data &&
-                    <Table type={props.type} data={data}/>
-                }
+                {table}
             </div>
         </div>
     );
@@ -77,7 +89,13 @@ function InteractiveUpvotesCounter(props) {
             firstUpdate.current = false;
             return;
         }
-        fetch("upvote/", {method: "POST", body: props.id});
+        fetch("upvote/", {method: "POST", body: props.id})
+            .then(response => {
+                if (!response.ok) {
+                    return response.text();
+                }
+            })
+            .then(result => console.error(result));
     }, [upvotes]);
 
     return (
