@@ -10,8 +10,19 @@ export default function TableWrapper(props) {
 
     function fetchData() {
         fetch(props.type)
-            .then((response) => response.json())
-            .then((result) => setData(result), (error) => console.error(error));
+            .then((response) => {
+                if (response.ok) {
+                    return response.json();
+                } else {
+                    return Promise.resolve([]);
+                }
+            })
+            .then((result) => {
+                if (Array.isArray(result) && result.length > 0) {
+                    setData(result);
+                }
+                return Promise.resolve()
+            }, (error) => console.error(error));
     }
 
     useEffect(() => {
@@ -25,13 +36,13 @@ export default function TableWrapper(props) {
     if (data && data.length > 0) {
         table = <Table type={props.type} data={data}/>;
     } else {
-        table = <p>Sorry, no data available...</p>
+        table = <p>Waiting for data...</p>
     }
 
     return (
         <div className="row">
             <div className="col">
-                <h3 id={props.type}>{props.title}</h3>
+                <h3>{props.title}</h3>
                 {table}
             </div>
         </div>
@@ -40,7 +51,7 @@ export default function TableWrapper(props) {
 
 function Table(props) {
     return (
-        <table>
+        <table id={props.type}>
             <thead>
             <tr>
                 <th>Bla</th>
@@ -65,6 +76,7 @@ function TableRow(props) {
     } else if (props.type === allData) {
         upvote = <InteractiveUpvotesCounter upvotes={props.doc.upvotes} id={props.doc._id}/>
     }
+
     return (
         <tr id={props.doc._id}>
             <td>{props.doc.val1}</td>
@@ -101,7 +113,7 @@ function InteractiveUpvotesCounter(props) {
     return (
         <>
             <span>{upvotes}</span>
-            <i className="material-icons" onClick={() => setUpvotes(upvotes + 1)}>arrow_drop_up</i>
+            <i className="material-icons upvote-button" onClick={() => setUpvotes(upvotes + 1)}>arrow_drop_up</i>
         </>
     );
 }

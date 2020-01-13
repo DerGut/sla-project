@@ -89,7 +89,8 @@ func upvoteHandler(w http.ResponseWriter, r *http.Request) {
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		log.Fatalf("Couldn't read request body: %s", err)
+		log.Printf("Couldn't read request body: %s", err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 
 	id, err := primitive.ObjectIDFromHex(string(body))
@@ -101,7 +102,9 @@ func upvoteHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = db.VoteUp(id)
 	if err != nil {
-		log.Fatalf("Couldn't vote up in mongo: %s", err)
+		log.Printf("Couldn't vote up in mongo: %s", err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -114,13 +117,16 @@ func featuredDataHandler(w http.ResponseWriter, r *http.Request) {
 		featured, err = db.FindFeaturedData()
 		if err != nil {
 			log.Printf("Couldn't find featured data in mongo either: %s", err)
-			featured = &[]Document{}
+			http.Error(w, "Couldn't load featured data", http.StatusInternalServerError)
+			return
 		}
 	}
 
 	marshalled, err := json.Marshal(featured)
 	if err != nil {
-		log.Fatalf("Couldn't marshal response: %s", err)
+		log.Printf("Couldn't marshal response: %s", err)
+		http.Error(w, "Couldn't marshal response", http.StatusInternalServerError)
+		return
 	}
 
 	w.Write(marshalled)
@@ -133,12 +139,15 @@ func allDataHandler(w http.ResponseWriter, r *http.Request) {
 	all, err := db.FindImportantData()
 	if err != nil {
 		log.Printf("Couldn't find important data: %s", err)
-		all = &[]Document{}
+		http.Error(w, "Couldn't find important data", http.StatusInternalServerError)
+		return
 	}
 
 	marshalled, err := json.Marshal(all)
 	if err != nil {
-		log.Fatalf("Couldn't marshal response: %s", err)
+		log.Printf("Couldn't marshal response: %s", err)
+		http.Error(w, "Couldn't marshal response", http.StatusInternalServerError)
+		return
 	}
 
 	w.Write(marshalled)
