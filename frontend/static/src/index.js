@@ -1,6 +1,6 @@
 import React from 'react';
 
-import Container from "./container";
+import TableWrapper from "./table";
 
 ReactDOM.render(<Root/>, document.getElementById("root"));
 
@@ -25,5 +25,15 @@ function Nav() {
                 </ul>
             </div>
         </nav>
+    );
+}
+
+function Container() {
+    return (
+        <div className="container">
+            <TableWrapper type="featured-data" title="Featured Data"/>
+
+            <TableWrapper type="all-data" title="All Data"/>
+        </div>
     );
 }
