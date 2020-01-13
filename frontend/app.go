@@ -162,10 +162,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	d := TemplateData{
-		Title: "Sample App",
-	}
-	t.Execute(w, d)
+	t.Execute(w, TemplateData{Title: "Sample App"})
 }
 
 func main() {
