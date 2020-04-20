@@ -47,6 +47,8 @@ services:
     depends_on:
       - frontend
       - selenium
+    volumes:
+    - ./poller/screenshots:/screenshots
 
   selenium:
     image: selenium/standalone-chrome
